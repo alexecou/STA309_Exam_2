@@ -1,0 +1,228 @@
+---
+title: "STA309_Exam_2_RMarkdown"
+author: "Alexander Couturier"
+date: "2024-11-12"
+output: html_document
+---
+
+## Load Packages and Data
+```{r setup, include=FALSE}
+library(tidyverse)
+library(ggthemes)
+library(maps)
+library(ggplot2)
+library(dplyr)
+library(patchwork)
+library(scales)
+
+production_url <- "https://raw.githubusercontent.com/oconnellmj/sta309/main/milk-production-tonnes.csv"
+
+consumption_url <- "https://raw.githubusercontent.com/oconnellmj/sta309/main/per-capita-milk-consumption.csv"
+
+production_data <- read.csv(production_url)
+
+consumption_data <- read.csv(consumption_url)
+```
+
+## Data Manipulation
+```{r}
+consumption_data <- consumption_data |>
+  rename(region = Entity)
+
+production_data <- production_data |>
+  rename(region = Entity)
+
+production_data <- production_data %>%
+  mutate(region = recode(region,
+                         "United States" = "USA",
+                         "United Kingdom" = "UK",
+                         "Czechia" = "Czech Republic"))
+
+consumption_data <- consumption_data %>%
+  mutate(region = recode(region,
+                         "United States" = "USA",
+                         "United Kingdom" = "UK",
+                         "Czechia" = "Czech Republic"))
+
+consumption_data_2021 <- consumption_data |>
+  filter(Year == 2021)
+
+production_data_2021 <- production_data |>
+  filter(Year == 2021)
+
+merged_2021 <- consumption_data_2021 |>
+  left_join(production_data_2021, by = c("region", "Year", "Code"))
+
+merged_full <- consumption_data |>
+  left_join(production_data, by = c("region", "Year", "Code"))
+```
+
+## Data Manipulation for the Maps
+```{r}
+mapdata <- map_data("world")
+
+production_map_data_2021 <- merged_2021 |>
+  select(region, total_production = Milk.Production..tonnes.)
+
+consumption_map_data_2021 <- merged_2021 |>
+  select(region, total_consumption = Milk.consumption..kilograms.per.year.per.capita.)
+
+prod_map_2021 <- left_join(mapdata, production_map_data_2021, by = c("region" = "region"))
+
+cons_map_2021 <- left_join(mapdata, consumption_map_data_2021, by = c("region" = "region"))
+```
+
+## Plotting Production and Consumption of Dairy across the world in 2021
+```{r}
+ggplot(prod_map_2021) +
+  geom_polygon(aes(x = long, y = lat, group = group, fill = total_production), color = "white") +
+  scale_fill_gradient(low = "lightblue", high = "darkblue", na.value = "grey80") +
+  theme_map() +
+  theme(legend.position = "left") +
+  labs(title = "Global Dairy Production in 2021 (in tonnes)",
+       subtitle = "Grey countries have no data",
+       caption = "Source: Github user oconnellmj") +
+  annotate("label", label="US production\nin 2021 was about\n102 million tonnes", x=-145, y=15, 
+           color="black", fontface="bold", size = 2.8)
+
+prod_map_plot_2021 <- ggplot(prod_map_2021) +
+  geom_polygon(aes(x = long, y = lat, group = group, fill = total_production), color = "white") +
+  scale_fill_gradient(low = "lightblue", high = "darkblue", na.value = "grey80") +
+  theme_map() +
+  theme(legend.position = "left") +
+  labs(title = "Global Dairy Production in 2021 (in tonnes)",
+       subtitle = "Grey countries have no data",
+       caption = "Source: Github user oconnellmj") +
+  annotate("label", label="US production\nin 2021 was about\n102 million tonnes", x=-145, y=15, 
+           color="black", fontface="bold", size = 2.8)
+
+ggplot(cons_map_2021) +
+  geom_polygon(aes(x = long, y = lat, group = group, fill = total_consumption), color = "white") +
+  scale_fill_gradient(low = "linen", high = "deeppink4", na.value = "grey80") +
+  theme_map() +
+  theme(legend.position = "left") +
+  labs(title = "Global Dairy Consumption in 2021 (kg/year/capita)",
+       subtitle = "Grey countries have no data",
+       caption = "Source: Github user oconnellmj") +
+  annotate("label", label="US consumption\nin 2021 was about\n231 kg", x=-145, y=15, 
+           color="black", fontface="bold", size = 2.8)
+
+con_map_plot_2021 <- ggplot(cons_map_2021) +
+  geom_polygon(aes(x = long, y = lat, group = group, fill = total_consumption), color = "white") +
+  scale_fill_gradient(low = "linen", high = "deeppink4", na.value = "grey80") +
+  theme_map() +
+  theme(legend.position = "left") +
+  labs(title = "Global Dairy Consumption in 2021 (kg/year/capita)",
+       subtitle = "Grey countries have no data",
+       caption = "Source: Github user oconnellmj") +
+  annotate("label", label="US consumption\nin 2021 was about\n231 kg", x=-145, y=15, 
+           color="black", fontface="bold", size = 2.8)
+```
+
+## Plotting Production and Consumption in the US
+```{r}
+usa_production_data <- production_data %>%
+  filter(region == "USA")
+
+usa_consumption_data <- consumption_data %>%
+  filter(region == "USA")
+
+usa_data <- left_join(usa_production_data, usa_consumption_data,
+                      by = c("Year", "region", "Code"))
+
+ggplot(usa_data) +
+  geom_line(aes(x = Year, 
+                y = Milk.Production..tonnes.), 
+                color = "darkcyan", size = 1.5) +
+  labs(title = "Dairy Production Over Time in the US",
+       subtitle = "Measured in tonnes",
+       x = NULL,
+       y = NULL,
+       color = "Legend") +
+  scale_y_continuous(labels = label_comma()) +
+  theme_clean() +
+  theme(legend.position = "none")
+
+ggplot(usa_data) +
+  geom_line(aes(x = Year, 
+                y = Milk.consumption..kilograms.per.year.per.capita.), 
+                color = "hotpink", size = 1.5) +
+  labs(title = "Dairy Consumption Over Time in the US",
+       subtitle = "Measured in kg per year per capita",
+       x = NULL,
+       y = NULL,
+       color = "Legend") +
+  scale_y_continuous(labels = label_comma()) +
+  theme_clean() +
+  theme(legend.position = "none")
+
+consumption_plot <- ggplot(usa_data) +
+  geom_line(aes(x = Year, 
+                y = Milk.consumption..kilograms.per.year.per.capita.), 
+                color = "hotpink", size = 1.5) +
+  labs(title = "Dairy Consumption Over Time in the US",
+       subtitle = "Measured in kg per year per capita",
+       x = NULL,
+       y = NULL,
+       color = "Legend") +
+  scale_y_continuous(labels = label_comma()) +
+  theme_clean() +
+  theme(legend.position = "none")
+
+production_plot <- ggplot(usa_data) +
+  geom_line(aes(x = Year, 
+                y = Milk.Production..tonnes.), 
+                color = "darkcyan", size = 1.5) +
+  labs(title = "Dairy Production Over Time in the US",
+       subtitle = "Measured in tonnes",
+       x = NULL,
+       y = NULL,
+       color = "Legend") +
+  scale_y_continuous(labels = label_comma()) +
+  theme_clean() +
+  theme(legend.position = "none")
+```
+
+## Plotting Relationship Graph
+```{r}
+ggplot(usa_data, aes(x = Milk.Production..tonnes.,
+                     y = Milk.consumption..kilograms.per.year.per.capita.)) +
+  geom_point(size = 3, color = "darkcyan") +
+  geom_smooth(method = "lm", se = FALSE, size = 1.5, color = "red") +
+  labs(title = "Relationship Between Dairy Production and Consumption in the US",
+       subtitle = "1961-2021",
+       x = "Dairy Production (Tonnes)",
+       y = "Dairy Consumption (Kg per Capita)") +
+  scale_x_continuous(labels = label_number(accuracy = 1)) +
+  theme_clean() +
+  theme(legend.position = "none")
+
+relationship_plot <- ggplot(usa_data, aes(x = Milk.Production..tonnes.,
+                     y = Milk.consumption..kilograms.per.year.per.capita.)) +
+  geom_point(size = 3, color = "darkcyan") +
+  geom_smooth(method = "lm", se = FALSE, size = 1.5, color = "red") +
+  labs(title = "Relationship Between Dairy Production and Consumption in the US",
+       subtitle = "1961-2021",
+       x = "Dairy Production (Tonnes)",
+       y = "Dairy Consumption (Kg per Capita)") +
+  scale_x_continuous(labels = label_number(accuracy = 1)) +
+  theme_clean() +
+  theme(legend.position = "none")
+```
+
+## Dashboard for Dairy Production and Consumption
+```{r, fig.width=16, fig.height=14}
+dairy_dashboard <- 
+  (prod_map_plot_2021 + con_map_plot_2021) / 
+  (production_plot + consumption_plot) /
+  (relationship_plot) + 
+  plot_annotation(title = "Dairy Consumption and Production",
+                  subtitle = "1961 - 2021") +
+  plot_layout(ncol = 1, heights = c(3, 2, 2), widths = c(1))
+dairy_dashboard
+
+ggsave("dairy_dashboard.png", plot = dairy_dashboard)
+dairy_dashboard
+```
+
+
